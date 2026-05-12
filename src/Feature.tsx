@@ -1,15 +1,149 @@
-import type { MeshConfig, YRoom } from "@baditaflorin/mesh-common";
+import { useEffect, useMemo, useState } from "react";
+import { createClockSync, type MeshConfig, type YRoom } from "@baditaflorin/mesh-common";
 
 type Props = { room: YRoom | null; config: MeshConfig };
 
+type Round = {
+  /** Mesh-time ms the host opened the buzzer. 0 = not open. */
+  armedAt: number;
+  id: string;
+};
+
+type Buzz = {
+  peerId: string;
+  name: string;
+  msSinceArmed: number;
+};
+
+const NAME_KEY = (prefix: string) => `${prefix}:displayName`;
+
 export function Feature({ room, config }: Props) {
+  const [name, setName] = useState(
+    () => localStorage.getItem(NAME_KEY(config.storagePrefix)) ?? "",
+  );
+  const [, rerender] = useState(0);
+
+  useEffect(() => {
+    if (name) localStorage.setItem(NAME_KEY(config.storagePrefix), name);
+  }, [name, config.storagePrefix]);
+
+  const clock = useMemo(() => (room ? createClockSync(room.provider) : null), [room]);
+  useEffect(() => () => clock?.destroy(), [clock]);
+
+  useEffect(() => {
+    if (!room) return;
+    const round = room.doc.getMap<Round>("round");
+    const buzzes = room.doc.getArray<Buzz>("buzzes");
+    const onChange = () => rerender((n) => n + 1);
+    round.observe(onChange);
+    buzzes.observe(onChange);
+    return () => {
+      round.unobserve(onChange);
+      buzzes.unobserve(onChange);
+    };
+  }, [room]);
+
+  if (!room || !clock) {
+    return (
+      <div className="buzz-screen">
+        <h1>buzzer</h1>
+        <p className="buzz-status">Connecting…</p>
+      </div>
+    );
+  }
+
+  const round = room.doc.getMap<Round>("round").get("current") ?? { armedAt: 0, id: "" };
+  const buzzes = room.doc.getArray<Buzz>("buzzes").toArray();
+  const myKey = name.trim() || `peer-${room.peerId.slice(0, 4)}`;
+  const myBuzz = buzzes.find((b) => b.peerId === room.peerId);
+  const armed = round.armedAt > 0;
+
+  const arm = () => {
+    const id = crypto.randomUUID();
+    room.doc.transact(() => {
+      room.doc.getArray<Buzz>("buzzes").delete(0, room.doc.getArray<Buzz>("buzzes").length);
+      room.doc.getMap<Round>("round").set("current", { armedAt: clock.meshNow(), id });
+    });
+  };
+
+  const buzz = () => {
+    if (!armed || myBuzz) return;
+    const t = clock.meshNow() - round.armedAt;
+    room.doc
+      .getArray<Buzz>("buzzes")
+      .push([{ peerId: room.peerId, name: myKey, msSinceArmed: Math.max(0, Math.round(t)) }]);
+  };
+
+  const reset = () => {
+    room.doc.transact(() => {
+      room.doc.getArray<Buzz>("buzzes").delete(0, room.doc.getArray<Buzz>("buzzes").length);
+      room.doc.getMap<Round>("round").set("current", { armedAt: 0, id: "" });
+    });
+  };
+
+  const sorted = [...buzzes].sort((a, b) => a.msSinceArmed - b.msSinceArmed);
+  const winner = sorted[0];
+
   return (
-    <div className="feature-placeholder">
-      <h1>{config.appName}</h1>
-      <p>{config.description}</p>
-      <p className="feature-status">
-        {room ? `Connected · ${room.peerCount} peer(s)` : "Connecting…"}
-      </p>
+    <div className="buzz-screen" data-armed={armed ? "1" : "0"}>
+      <header className="buzz-header">
+        <h1>buzzer</h1>
+        <input
+          className="buzz-name"
+          placeholder="your name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={24}
+        />
+        <p className="buzz-status">
+          {room.peerCount + 1} player{room.peerCount === 0 ? "" : "s"} · ms-precision
+        </p>
+      </header>
+
+      {!armed && (
+        <button type="button" className="buzz-arm" onClick={arm}>
+          ARM (open round)
+        </button>
+      )}
+
+      {armed && !myBuzz && (
+        <button type="button" className="buzz-buzz" onClick={buzz}>
+          BUZZ!
+        </button>
+      )}
+
+      {armed && myBuzz && (
+        <div className="buzz-mine">
+          <p>you buzzed at</p>
+          <p className="buzz-mine-ms">{myBuzz.msSinceArmed} ms</p>
+        </div>
+      )}
+
+      {sorted.length > 0 && (
+        <>
+          <ol className="buzz-list">
+            {sorted.map((b, i) => (
+              <li key={b.peerId} className={i === 0 ? "is-winner" : ""}>
+                <span>
+                  {i + 1}. {b.name}
+                </span>
+                <span className="buzz-ms">+{b.msSinceArmed} ms</span>
+              </li>
+            ))}
+          </ol>
+          {winner && (
+            <p className="buzz-winner">
+              winner: <strong>{winner.name}</strong>
+            </p>
+          )}
+        </>
+      )}
+
+      {(armed || sorted.length > 0) && (
+        <button type="button" className="buzz-reset" onClick={reset}>
+          next round
+        </button>
+      )}
     </div>
   );
 }

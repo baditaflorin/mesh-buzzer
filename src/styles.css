@@ -1,14 +1,9 @@
-/* App-local styles. Mesh chrome (settings drawer, self-ref bar) is provided by
- * @baditaflorin/mesh-common/styles.css imported in main.tsx. */
-
 :root {
   color-scheme: dark;
 }
-
 * {
   box-sizing: border-box;
 }
-
 html,
 body,
 #root {
@@ -22,30 +17,143 @@ body,
   -webkit-tap-highlight-color: transparent;
 }
 
-.feature-placeholder {
-  padding: 6rem 1.5rem 2rem;
-  text-align: center;
+.buzz-screen {
+  padding: 4rem 1rem 5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  min-height: 100%;
+  transition: background 100ms;
 }
 
-.feature-placeholder h1 {
-  font-size: 1.6rem;
+.buzz-screen[data-armed="1"] {
+  background: color-mix(in srgb, var(--mesh-accent) 15%, var(--mesh-bg));
+}
+
+.buzz-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.buzz-header h1 {
   margin: 0;
+  color: var(--mesh-accent);
+  font-size: 1.5rem;
+}
+
+.buzz-name {
+  width: min(260px, 90%);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--mesh-fg);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  text-align: center;
+}
+
+.buzz-status {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--mesh-muted);
+}
+
+.buzz-arm,
+.buzz-buzz {
+  width: min(280px, 80vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: none;
+  font-size: clamp(1.5rem, 7vw, 2.5rem);
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  margin: 2rem 0;
+}
+
+.buzz-arm {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--mesh-fg);
+  border: 3px dashed rgba(255, 255, 255, 0.3);
+}
+
+.buzz-buzz {
+  background: var(--mesh-accent);
+  color: #0b0a06;
+  box-shadow: 0 0 60px color-mix(in srgb, var(--mesh-accent) 70%, transparent);
+  animation: throb 1s ease-in-out infinite;
+}
+
+/* opacity-only animation so the bounding box stays stable for Playwright */
+@keyframes throb {
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 90px color-mix(in srgb, var(--mesh-accent) 90%, transparent);
+  }
+}
+
+.buzz-buzz:active {
+  opacity: 0.9;
+}
+
+.buzz-mine {
+  text-align: center;
+  padding: 1.5rem;
+  background: color-mix(in srgb, var(--mesh-accent) 15%, transparent);
+  border: 1px solid var(--mesh-accent);
+  border-radius: 12px;
+}
+.buzz-mine p {
+  margin: 0;
+}
+.buzz-mine-ms {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 2.5rem;
+  font-weight: 600;
   color: var(--mesh-accent);
 }
 
-.feature-placeholder p {
-  max-width: 32rem;
+.buzz-list {
+  list-style: none;
+  padding: 0;
   margin: 0;
-  opacity: 0.85;
-  line-height: 1.5;
+  width: 100%;
+  max-width: 28rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.buzz-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.buzz-list li.is-winner {
+  background: color-mix(in srgb, var(--mesh-accent) 20%, transparent);
+  border: 1px solid var(--mesh-accent);
+  font-weight: 600;
 }
 
-.feature-status {
-  font-size: 0.85rem;
-  opacity: 0.6;
-  font-variant-numeric: tabular-nums;
+.buzz-ms {
+  color: var(--mesh-muted);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.buzz-winner {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.buzz-reset {
+  background: transparent;
+  color: var(--mesh-muted);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 0.5rem 1.2rem;
+  cursor: pointer;
 }

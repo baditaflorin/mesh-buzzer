@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { createClockSync, type MeshConfig, type YRoom } from "@baditaflorin/mesh-common";
+import {
+  MeshNameInput,
+  createClockSync,
+  type MeshConfig,
+  type YRoom,
+} from "@baditaflorin/mesh-common";
 
 type Props = { room: YRoom | null; config: MeshConfig };
 
@@ -88,11 +93,11 @@ export function Feature({ room, config }: Props) {
     <div className="buzz-screen" data-armed={armed ? "1" : "0"}>
       <header className="buzz-header">
         <h1>buzzer</h1>
-        <input
+        <MeshNameInput
           className="buzz-name"
           placeholder="your name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={setName}
           maxLength={24}
         />
         <p className="buzz-status">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MeshNameInput,
   createClockSync,
@@ -35,18 +35,38 @@ export function Feature({ room, config }: Props) {
   const clock = useMemo(() => (room ? createClockSync(room.provider) : null), [room]);
   useEffect(() => () => clock?.destroy(), [clock]);
 
+  // The mesh-time (this peer's frame) at which THIS peer first observed the
+  // current round become armed. We measure reaction time as
+  // `meshNow() - localArmObservedAt`, reading both samples from the SAME peer's
+  // mesh clock so any absolute clock skew cancels out. Storing the raw
+  // armer-frame `armedAt` and subtracting it from a *different* peer's mesh
+  // clock (the old code) is wrong: with a skewed peer the two mesh-clock frames
+  // disagree and the elapsed delta is garbage (it floored to 0 → wrong winner).
+  const armObservedRef = useRef<{ id: string; at: number }>({ id: "", at: 0 });
+
   useEffect(() => {
-    if (!room) return;
+    if (!room || !clock) return;
     const round = room.doc.getMap<Round>("round");
     const buzzes = room.doc.getArray<Buzz>("buzzes");
-    const onChange = () => rerender((n) => n + 1);
+    const noteArm = () => {
+      const cur = round.get("current");
+      if (cur && cur.armedAt > 0 && cur.id && armObservedRef.current.id !== cur.id) {
+        // First time this peer sees this round open — stamp its own mesh clock.
+        armObservedRef.current = { id: cur.id, at: clock.meshNow() };
+      }
+    };
+    const onChange = () => {
+      noteArm();
+      rerender((n) => n + 1);
+    };
+    noteArm();
     round.observe(onChange);
     buzzes.observe(onChange);
     return () => {
       round.unobserve(onChange);
       buzzes.unobserve(onChange);
     };
-  }, [room]);
+  }, [room, clock]);
 
   if (!room || !clock) {
     return (
@@ -65,15 +85,27 @@ export function Feature({ room, config }: Props) {
 
   const arm = () => {
     const id = crypto.randomUUID();
+    const armedAt = clock.meshNow();
+    // Stamp our own arm-observation immediately so the armer measures its own
+    // reaction from the same instant every other peer does.
+    armObservedRef.current = { id, at: armedAt };
     room.doc.transact(() => {
       room.doc.getArray<Buzz>("buzzes").delete(0, room.doc.getArray<Buzz>("buzzes").length);
-      room.doc.getMap<Round>("round").set("current", { armedAt: clock.meshNow(), id });
+      room.doc.getMap<Round>("round").set("current", { armedAt, id });
     });
   };
 
   const buzz = () => {
     if (!armed || myBuzz) return;
-    const t = clock.meshNow() - round.armedAt;
+    // Reaction time is measured ENTIRELY in this peer's own mesh-clock frame:
+    // (now) − (when this peer observed the round arm). Both reads come from the
+    // same `clock.meshNow()`, so the peer's absolute offset to mesh-median
+    // cancels and a skewed local clock cannot corrupt the ordering. Falls back
+    // to the shared armer-frame `armedAt` only if we somehow never recorded the
+    // local observation (e.g. buzzed in the same tick the round arrived).
+    const observed = armObservedRef.current.id === round.id ? armObservedRef.current.at : null;
+    const base = observed ?? round.armedAt;
+    const t = clock.meshNow() - base;
     room.doc
       .getArray<Buzz>("buzzes")
       .push([{ peerId: room.peerId, name: myKey, msSinceArmed: Math.max(0, Math.round(t)) }]);

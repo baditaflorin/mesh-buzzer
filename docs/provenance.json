@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "app": "mesh-buzzer",
+  "sourceCommit": "1ddfb2656854ec7a04f08a434e4c6be82878f79a",
+  "releaseCommit": "1ddfb2656854ec7a04f08a434e4c6be82878f79a",
+  "meshCommonCommit": "025f7ff72e50c4b54a3f4a2d8c88f4f600dec78f",
+  "recordedAt": "2026-08-26T21:01:42Z"
+}

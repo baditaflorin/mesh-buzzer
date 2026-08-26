@@ -1,0 +1,18 @@
+when:
+  event:
+    - push
+    - pull_request
+
+steps:
+  verify:
+    image: node:22
+    commands:
+      - git clone --depth 1 --filter=blob:none --sparse https://github.com/baditaflorin/mesh-common.git ../mesh-common
+      - git -C ../mesh-common sparse-checkout set --cone src testing scaffold scripts presets
+      - test "$(git -C ../mesh-common rev-parse HEAD)" = "025f7ff72e50c4b54a3f4a2d8c88f4f600dec78f"
+      - npm ci --prefix ../mesh-common
+      - npm ci
+      - npm run fmt:check
+      - npm run typecheck
+      - npm run test:unit
+      - npm run smoke
